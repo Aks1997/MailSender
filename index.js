@@ -13,19 +13,44 @@ const subject= process.env.EMAIL_SUBJECT;
 let emailHtmlContent="";
 const port = process.env.PORT;
 
+let success=0,failure=0;
+let totalUsers=0;
+
 let transporter=null;
 
 const readAddressFile = ()=>{
     csv()
     .fromFile(toAddressesFile)
     .then((json)=>{
-        json.forEach(data=>{
-            createMailOption(data);
-        })
+        createMessageChunks(json);
     })
 }
 
-const createMailOption = (identity) =>{
+const createMessageChunks= (json)=>{
+    let length= json.length;
+    totalUsers= length;
+    let packets= Math.floor(length/50);
+    packets+= (length%50)!=0 ? 1 : 0;
+    console.log(length, packets); 
+
+    let index=0;
+    let timerId= setInterval(()=>{
+        if(index>=packets-1){
+            clearInterval(timerId);
+        }
+        let offset= index*50;
+        let end= length<(offset+50) ? length : (offset+50);
+        let writeStream= fs.createWriteStream("./logs/log"+offset+".txt");
+        for(let itr=offset;itr<end;itr++){
+            createMailOption(json[itr], writeStream);
+            //console.log("after", itr);
+            //writeStream.write(json[itr].email);
+        }
+        index++;
+    }, 2000);
+}
+
+const createMailOption = (identity, stream) =>{
     let mailOptions = {
         from: senderAddress,
         to: identity.email,
@@ -33,27 +58,35 @@ const createMailOption = (identity) =>{
         text: ``,
         html: emailHtmlContent
       };
-      sendEmail(mailOptions);
+      sendEmail(mailOptions, stream);
 }
 
 const createConnection = () =>{
     transporter = nodemailer.createTransport({
         host: smtpEndpoint,
         port: port,
-        secure: false,
+        secureConnection: true,
         auth: {
           user: smtpUsername,
           pass: smtpPassword
-        }
+        },
+		tls:{
+			secureProtocol: "TLSv1_method"
+		}
     });
 }
 
-const sendEmail = (mailOptions) =>{
+const sendEmail = (mailOptions, stream) =>{
     transporter.sendMail(mailOptions, function(error, info){
         if (error) {
-          console.log(error);
+            failure++;
+            stream.write("Error while sending mail to: "+mailOptions.to +"\n");
         } else {
-          console.log('Email sent: ', info.response);
+            success++;
+            stream.write('Email sent: '+ mailOptions.to+"\n");
+        }
+        if(failure+success==totalUsers){
+            console.log("Total Successful mails: "+success, "Total failures: "+failure);
         }
     });
 }

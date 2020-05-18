@@ -34,7 +34,9 @@ build/
 node_modules/
 node/
 dist/
+logs/
 
 *.csv
 *.html
+
 

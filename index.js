@@ -43,11 +43,9 @@ const createMessageChunks= (json)=>{
         let writeStream= fs.createWriteStream("./logs/log"+offset+".txt");
         for(let itr=offset;itr<end;itr++){
             createMailOption(json[itr], writeStream);
-            //console.log("after", itr);
-            //writeStream.write(json[itr].email);
         }
         index++;
-    }, 2000);
+    }, 5000);
 }
 
 const createMailOption = (identity, stream) =>{
